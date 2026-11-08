@@ -299,7 +299,7 @@ class YOLACT(OnnxRoboflowInferenceModel):
         """
         ret_mask = np.matmul(proto, np.transpose(masks))
         ret_mask = 1 / (1 + np.exp(-ret_mask))
-        w, h, _ = ret_mask.shape
+        h, w, _ = ret_mask.shape
         gain = min(h / img_dim[0], w / img_dim[1])  # gain  = old / new
         pad = (w - img_dim[1] * gain) / 2, (h - img_dim[0] * gain) / 2  # wh padding
         top, left = int(pad[1]), int(pad[0])  # y, x
@@ -309,7 +309,10 @@ class YOLACT(OnnxRoboflowInferenceModel):
         if len(ret_mask.shape) == 2:
             ret_mask = np.expand_dims(ret_mask, axis=0)
         ret_mask = ret_mask.transpose((1, 2, 0))
-        ret_mask = cv2.resize(ret_mask, img_dim, interpolation=cv2.INTER_LINEAR)
+        # img_dim is (height, width); cv2.resize takes (width, height)
+        ret_mask = cv2.resize(
+            ret_mask, (img_dim[1], img_dim[0]), interpolation=cv2.INTER_LINEAR
+        )
         if len(ret_mask.shape) == 2:
             ret_mask = np.expand_dims(ret_mask, axis=2)
         ret_mask = ret_mask.transpose((2, 0, 1))
