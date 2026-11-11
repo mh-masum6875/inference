@@ -20,6 +20,9 @@ for contributor and maintainer responsibilities.
 
 - Workflows' standalone image codec now reports non-ASCII base64 payloads as
   `WorkflowImageLoadError` instead of allowing a raw `ValueError` to escape.
+- `roboflow_core/detection_offset@v1` now clips each box coordinate against both image edges and
+  keeps the corners in order, so a negative offset supplied through a selector, or a box that
+  already lies outside the image, no longer yields a box with its corners the wrong way round.
 
 ## `0.2.15`
 

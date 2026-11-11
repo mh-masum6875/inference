@@ -271,3 +271,59 @@ def test_run_offsets_by_percentage_when_percent_units_selected_tensor_native() -
     assert (
         y2 == 620
     ), "Bottom corner should be moved by 5% of detection height to the bottom"
+
+
+def test_offset_detection_when_offset_is_negative() -> None:
+    # given
+    detections = sv.Detections(
+        xyxy=np.array([[100, 100, 120, 120]], dtype=np.float64),
+        class_id=np.array([1]),
+        confidence=np.array([0.5], dtype=np.float64),
+        data={
+            "detection_id": np.array(["four"]),
+            "class_name": np.array(["car"]),
+            "parent_id": np.array(["p4"]),
+            "image_dimensions": np.array([[480, 640]]),
+        },
+    )
+
+    # when
+    result = offset_detections(
+        detections=detections,
+        offset_width=-60,
+        offset_height=-60,
+    )
+
+    # then
+    x1, y1, x2, y2 = result.xyxy[0]
+    assert x1 <= x2, "Left corner must not end up to the right of the right corner"
+    assert y1 <= y2, "Top corner must not end up below the bottom corner"
+
+
+def test_offset_detection_when_box_starts_outside_the_image() -> None:
+    # given
+    detections = sv.Detections(
+        xyxy=np.array([[700, 500, 760, 560]], dtype=np.float64),
+        class_id=np.array([1]),
+        confidence=np.array([0.5], dtype=np.float64),
+        data={
+            "detection_id": np.array(["five"]),
+            "class_name": np.array(["car"]),
+            "parent_id": np.array(["p5"]),
+            "image_dimensions": np.array([[480, 640]]),
+        },
+    )
+
+    # when
+    result = offset_detections(
+        detections=detections,
+        offset_width=20,
+        offset_height=20,
+    )
+
+    # then
+    x1, y1, x2, y2 = result.xyxy[0]
+    assert x1 <= x2, "Left corner must not end up to the right of the right corner"
+    assert y1 <= y2, "Top corner must not end up below the bottom corner"
+    assert x2 <= 640, "Right corner should be clipped to the image width"
+    assert y2 <= 480, "Bottom corner should be clipped to the image height"

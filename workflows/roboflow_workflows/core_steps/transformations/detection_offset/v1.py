@@ -1,6 +1,6 @@
 import uuid
 from copy import deepcopy
-from typing import List, Literal, Optional, Type, Union
+from typing import List, Literal, Optional, Tuple, Type, Union
 
 import numpy as np
 import supervision as sv
@@ -184,6 +184,30 @@ class DetectionOffsetBlockV1(WorkflowBlock):
         ]
 
 
+def _offset_box(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    pad_x: float,
+    pad_y: float,
+    image_height: float,
+    image_width: float,
+) -> Tuple[float, float, float, float]:
+    """Pad a box by pad_x/pad_y on each side, clipped to the image.
+
+    Each coordinate is clipped against both image edges, so a box that already lies outside the
+    image cannot keep an out-of-range corner. A negative pad contracts the box, which can move the
+    two edges of an axis past each other; the far edge is then held at the near one, collapsing that
+    axis instead of producing a box with its corners the wrong way round.
+    """
+    new_x1 = min(max(x1 - pad_x, 0), image_width)
+    new_y1 = min(max(y1 - pad_y, 0), image_height)
+    new_x2 = min(max(x2 + pad_x, 0), image_width)
+    new_y2 = min(max(y2 + pad_y, 0), image_height)
+    return new_x1, new_y1, max(new_x1, new_x2), max(new_y1, new_y2)
+
+
 def offset_detections(
     detections: sv.Detections,
     offset_width: int,
@@ -199,30 +223,31 @@ def offset_detections(
     if use_percentage:
         _detections.xyxy = np.array(
             [
-                (
-                    max(0, x1 - int(box_width * offset_width / 200)),
-                    max(0, y1 - int(box_height * offset_height / 200)),
-                    min(
-                        image_dimensions[i][1],
-                        x2 + int(box_width * offset_width / 200),
-                    ),
-                    min(
-                        image_dimensions[i][0],
-                        y2 + int(box_height * offset_height / 200),
-                    ),
+                _offset_box(
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    int((x2 - x1) * offset_width / 200),
+                    int((y2 - y1) * offset_height / 200),
+                    image_dimensions[i][0],
+                    image_dimensions[i][1],
                 )
                 for i, (x1, y1, x2, y2) in enumerate(_detections.xyxy)
-                for box_width, box_height in [(x2 - x1, y2 - y1)]
             ]
         )
     else:
         _detections.xyxy = np.array(
             [
-                (
-                    max(0, x1 - offset_width // 2),
-                    max(0, y1 - offset_height // 2),
-                    min(image_dimensions[i][1], x2 + offset_width // 2),
-                    min(image_dimensions[i][0], y2 + offset_height // 2),
+                _offset_box(
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    offset_width // 2,
+                    offset_height // 2,
+                    image_dimensions[i][0],
+                    image_dimensions[i][1],
                 )
                 for i, (x1, y1, x2, y2) in enumerate(_detections.xyxy)
             ]
